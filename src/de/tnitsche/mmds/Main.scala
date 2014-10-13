@@ -16,14 +16,14 @@ object Main {
 
   val FILE = "c:/tmp/sentences.txt"
   val OUTDIR = "f:/tmp/mmds/"
+  val KEYSIZE = 5
 
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
-    
+    firstPass
     //val sMap = firstPass
     //splitIntoFilesByLength(FILE, OUTDIR)
-    val sMap = firstPass
-    
+    //val sMap = firstPass
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
 
@@ -63,46 +63,62 @@ object Main {
     return byLen
   }
   
-  private def firstPass: mutable.Map[Int, Array[Int]] = {
+  private def firstPass = {
     var dataMap = mutable.Map[Int, Array[String]]()
-    var sMap = mutable.Map[Int, Array[Int]]().withDefaultValue(Array())
+    var prefixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
+    var postfixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
     var i = 0
-    for(line <- Source.fromFile("F:/tmp/mmds/00010.txt").getLines()) {
+    for(line <- Source.fromFile("F:/tmp/mmds/00041.txt").getLines()) {
       i += 1
       if (i % 100000 == 0) println(i + " " + Runtime.getRuntime().freeMemory())
-      var words = line.split(" ");
-      var id = words.head.toInt;
+      var lineArr = line.split(" ");
+      val words = lineArr.tail
+      var id = lineArr.head.toInt;
       // println(words.tail)
       dataMap(id) = words
-      for (s <- hash(words.tail)) {
-        var idx = s.abs % HMS
-        sMap(idx) = sMap(idx) :+ id.toInt
-      }
-      
+      prefixMap(words.take(KEYSIZE).mkString(" ")) = prefixMap(words.take(KEYSIZE).mkString(" ")) :+ id
+      postfixMap(words.takeRight(KEYSIZE).mkString(" ")) = postfixMap(words.takeRight(KEYSIZE).mkString(" ")) :+ id
     }    
     
-    val relMap = sMap.filter(p => p._2.size > 1)
-    val sizes = relMap.map(p => p._2.size)
-    println(relMap.size + " - " + sizes.sum + " - " + sizes.max + " - " + sizes.sum.toFloat/relMap.size)
+    println(prefixMap.size + " " + postfixMap.size)
+    val preMap = prefixMap.filter(p => p._2.size > 1)
+    val postMap = postfixMap.filter(p => p._2.size > 1)
+    println(preMap.map(p => p._2.size).max)
+    println(postMap.map(p => p._2.size).max)
+    println(preMap.size + " " + postMap.size)
     
-    return sMap
+    var resCount = 0
+    for (id <- dataMap.keys) {
+      val sentence = dataMap(id)
+      val set = Set() ++ preMap(sentence.take(KEYSIZE).mkString(" ")) ++ postMap(sentence.takeRight(KEYSIZE).mkString(" "))
+      for (s1 <- set) {
+        if (id < s1) {
+          val b = hasEditDistanceLE1(dataMap(id), dataMap(s1))
+          if (b) resCount += 1
+        }
+      }
+    }
+    println("\n========================\n" + resCount)
   }
 
-  def createSubSets(arr: Array[String]) : Array[Array[String]] = {
-    var result = arr.map(x => arr.filter(el => el != x))
-    result = result :+ arr
-    return result
-  } 
-  
-  def hash2(arr: Array[String]) : Array[Int] = {
-    var result = arr.map(x => arr.filter(el => el != x).toList.hashCode)
-    result = result :+ arr.toList.hashCode
-    return result
-  }
-  
-  def hash(arr: Array[String]) : Array[Int] = {
-    val hashes = Array.tabulate(arr.size) {i => (arr(i).hashCode * PRIMES(i % PRIMES.length)).abs}
-    val sum = hashes.sum
-    return sum % HMS +: hashes.map(x => (sum - x).abs % HMS)
-  }
+  def hasEditDistanceLE1(s1: Array[String], s2: Array[String]): Boolean = {
+    if (s1.size != s2.size) {
+      var sh = s1.toList
+      var lo = s2.toList
+      if (s1.size > s2.size) {
+        sh = s2.toList
+        lo = s1.toList
+      }
+      for (i <- 0 to lo.size - 1) {
+        if (lo.take(i) ++ lo.drop(i+1) == sh) return true
+      }
+      return false
+    } else {
+      var c = 0;
+      for(i <- 0 to s1.size - 1) {
+        if (s1(i) == s2(i)) c += 1
+      }
+      return s1.size - c <= 1
+    }
+  }  
 }
