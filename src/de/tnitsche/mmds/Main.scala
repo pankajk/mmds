@@ -42,25 +42,12 @@ object Main {
     }
   }
 
-  def countByLen() : mutable.Map[Int, Int] = {
-    var byLen = mutable.Map[Int, Int]().withDefaultValue(0)
-    var i = 0
-    for(line <- Source.fromFile("F:/tmp/mmds/00010.txt").getLines()) {
-      i += 1
-      if (i % 100000 == 0) println(i + " " + Runtime.getRuntime().freeMemory())
-      val len = line.split(" ").size - 1
-      byLen(len) += 1
-    }
-    println(byLen.toList.sortBy(a => a._1))
-    return byLen
-  }
-  
   private def firstPass = {
     var dataMap = mutable.Map[Int, Array[String]]()
     var prefixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
     var postfixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
     var i = 0
-    for(line <- Source.fromFile("F:/tmp/mmds/00011.txt").getLines()) {
+    for(line <- Source.fromFile("F:/tmp/mmds/00041.txt").getLines()) {
       i += 1
       if (i % 100000 == 0) println(i + " " + Runtime.getRuntime().freeMemory())
       var lineArr = line.split(" ");
@@ -77,16 +64,18 @@ object Main {
     val postMap = postfixMap.filter(p => p._2.size > 1)
     
     var resCount = 0
+    var compCount = 0
     for (id <- dataMap.keys) {
       val sentence = dataMap(id)
       val prefix = sentence.take(KEYSIZE).mkString(" ")
       val postfix = sentence.takeRight(KEYSIZE).mkString(" ")
       val set = (List() ++ preMap(prefix) ++ postMap(postfix)).distinct.sorted
       for (s1 <- set; if (id > s1)) {
+        compCount += 1
         if (hasEditDistanceLE1(dataMap(id), dataMap(s1))) resCount += 1
       }
     }
-    println("\n========================\n" + resCount)
+    println("\n========================\n" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")")
   }
 
   def hasEditDistanceLE1(s1: Array[String], s2: Array[String]): Boolean = {
