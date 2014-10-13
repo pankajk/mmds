@@ -22,7 +22,7 @@ object Main {
     
     //val sMap = firstPass
     //splitIntoFilesByLength(FILE, OUTDIR)
-    println(firstPass)
+    val sMap = firstPass
     
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
@@ -63,8 +63,9 @@ object Main {
     return byLen
   }
   
-  private def firstPass: Array[Int] = {
-    var sMap = new Array[Int](HMS)
+  private def firstPass: mutable.Map[Int, Array[Int]] = {
+    var dataMap = mutable.Map[Int, Array[String]]()
+    var sMap = mutable.Map[Int, Array[Int]]().withDefaultValue(Array())
     var i = 0
     for(line <- Source.fromFile("F:/tmp/mmds/00010.txt").getLines()) {
       i += 1
@@ -72,18 +73,18 @@ object Main {
       var words = line.split(" ");
       var id = words.head.toInt;
       // println(words.tail)
+      dataMap(id) = words
       for (s <- hash(words.tail)) {
         var idx = s.abs % HMS
-        sMap(idx) = sMap(idx) + 1
+        sMap(idx) = sMap(idx) :+ id.toInt
       }
       
     }    
-    println(sMap.size)
     
-    val count = sMap.count(p => p > 1)
-    println(count)
+    val relMap = sMap.filter(p => p._2.size > 1)
+    val sizes = relMap.map(p => p._2.size)
+    println(relMap.size + " - " + sizes.sum + " - " + sizes.max + " - " + sizes.sum.toFloat/relMap.size)
     
-    println("Ratio: "  + count.floatValue / sMap.size)
     return sMap
   }
 
