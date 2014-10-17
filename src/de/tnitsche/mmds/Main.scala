@@ -7,6 +7,7 @@ import java.io.PrintWriter
 import java.util.zip.GZIPOutputStream
 import java.io.FileOutputStream
 import java.io.OutputStreamWriter
+import java.nio.file.{Paths, Files}
 
 object Main {
   val FILE = "c:/tmp/sentences.txt"
@@ -15,7 +16,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
-    firstPass
+    loop((10 to 5632).toList)
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
   }
@@ -41,15 +42,50 @@ object Main {
     }
   }
 
-  private def firstPass = {
-    val (dataMap, preMap, postMap) = readAndIndex
-    checkCandidates(dataMap, preMap, postMap)
+  private def loop(sLenList: List[Int]) = {
+    var prevPreMap = scala.collection.mutable.Map[String, List[Int]]()
+    var prevPostMap = scala.collection.mutable.Map[String, List[Int]]()
+    var prevDataMap = scala.collection.mutable.Map[Int,Array[String]]()
+    var result = 0
+    for (sLen <- sLenList) {
+      println(sLen + ":\n")
+	    val (dataMap, preMap, postMap) = readAndIndex(sLen)
+	    result += checkShorterCandidates(dataMap, prevDataMap, prevPreMap, prevPostMap)
+	    prevPreMap = preMap
+	    prevPostMap = postMap
+	    prevDataMap = dataMap
+	    result += checkCandidates(dataMap, preMap, postMap)
+    }
+    println("\n========================\n Result:" + result)
   }
 
+  
+  private def checkShorterCandidates(dataMap: scala.collection.mutable.Map[Int, Array[String]], 
+      prevDataMap: scala.collection.mutable.Map[Int,Array[String]], 
+      prevPreMap: scala.collection.mutable.Map[String, List[Int]], 
+      prevPostMap: scala.collection.mutable.Map[String, List[Int]]): Int = {
+    val t0 = System.nanoTime()
+    println("\n======================== Check shorter candidates")
+
+    var resCount = 0
+    var compCount = 0
+    for (id <- dataMap.keys) {
+      val sentence = dataMap(id)
+      val (res, comp) = checkShorterSentence(dataMap, prevDataMap, prevPreMap, prevPostMap,  id)
+      resCount += res
+      compCount += comp
+    }
+    val t1 = System.nanoTime()
+    println("check candidates: " + (t1 - t0) / 1000000 + "ms")
+    println("========================\n" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")")
+    return resCount
+  }
+  
   private def checkCandidates(dataMap: scala.collection.mutable.Map[Int, Array[String]], 
       preMap: scala.collection.mutable.Map[String, List[Int]], 
       postMap: scala.collection.mutable.Map[String, List[Int]]): Int = {
     val t0 = System.nanoTime()
+    println("\n======================== Check candidates")
 
     var resCount = 0
     var compCount = 0
@@ -61,10 +97,35 @@ object Main {
     }
     val t1 = System.nanoTime()
     println("check candidates: " + (t1 - t0) / 1000000 + "ms")
-    println("\n========================\n" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")")
+    println("========================\n" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")")
     return resCount
   }
-
+  
+  private def checkShorterSentence(dataMap: scala.collection.mutable.Map[Int,Array[String]], 
+      prevDataMap: scala.collection.mutable.Map[Int,Array[String]], 
+      preMap: scala.collection.mutable.Map[String,List[Int]], 
+      postMap: scala.collection.mutable.Map[String,List[Int]], 
+      id: Int): (Int, Int) = {
+    var resCount = 0
+    var compCount = 0
+    val sentence = dataMap(id)
+    val prefix = sentence.take(KEYSIZE).mkString(" ")
+    val postfix = sentence.takeRight(KEYSIZE).mkString(" ")
+    var set = List[Int]() 
+    if (preMap.contains(prefix)) {
+      set = set ++ preMap(prefix)
+    }
+    if (postMap.contains(postfix)) {
+      set = set ++ postMap(postfix)
+    }
+    set = set.distinct
+    for (s1 <- set) {
+      compCount += 1
+      if (hasEditDistanceLE1(dataMap(id), prevDataMap(s1))) resCount += 1
+    }
+    return (resCount, compCount)
+  }
+  
   private def checkSentence(dataMap: scala.collection.mutable.Map[Int,Array[String]], 
       preMap: scala.collection.mutable.Map[String,List[Int]], 
       postMap: scala.collection.mutable.Map[String,List[Int]], 
@@ -74,15 +135,15 @@ object Main {
     val sentence = dataMap(id)
     val prefix = sentence.take(KEYSIZE).mkString(" ")
     val postfix = sentence.takeRight(KEYSIZE).mkString(" ")
-    val set = (List() ++ preMap(prefix) ++ postMap(postfix)).distinct.sorted
-    for (s1 <- set; if (id > s1)) {
+    var set = (List() ++ preMap(prefix) ++ postMap(postfix)).filter(p => p > id).distinct
+    for (s1 <- set) {
       compCount += 1
       if (hasEditDistanceLE1(dataMap(id), dataMap(s1))) resCount += 1
     }
     return (resCount, compCount)
   }
 
-  private def readAndIndex: (scala.collection.mutable.Map[Int, Array[String]], 
+  private def readAndIndex(sLength: Int): (scala.collection.mutable.Map[Int, Array[String]], 
       scala.collection.mutable.Map[String, List[Int]], 
       scala.collection.mutable.Map[String, List[Int]]) = {
     val t0 = System.nanoTime()
@@ -90,25 +151,25 @@ object Main {
     var prefixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
     var postfixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
     var i = 0
-    for (line <- Source.fromFile("F:/tmp/mmds/00041.txt").getLines()) {
-      i += 1
-      if (i % 100000 == 0) println(i + " " + Runtime.getRuntime().freeMemory())
-      var lineArr = line.split(" ");
-      val words = lineArr.tail
-      var id = lineArr.head.toInt;
-      dataMap(id) = words
-      val prefix = words.take(KEYSIZE).mkString(" ")
-      prefixMap(prefix) = prefixMap(prefix) :+ id
-      val postfix = words.takeRight(KEYSIZE).mkString(" ")
-      postfixMap(postfix) = postfixMap(postfix) :+ id
+    val fileName = OUTDIR + "%05d".format(sLength) + ".txt"
+    if (Files.exists(Paths.get(fileName))) {
+	    for (line <- Source.fromFile(fileName).getLines()) {
+	      i += 1
+	      if (i % 100000 == 0) println(i + " " + Runtime.getRuntime().freeMemory())
+	      var lineArr = line.split(" ");
+	      val words = lineArr.tail
+	      var id = lineArr.head.toInt;
+	      dataMap(id) = words
+	      val prefix = words.take(KEYSIZE).mkString(" ")
+	      prefixMap(prefix) = prefixMap(prefix) :+ id
+	      val postfix = words.takeRight(KEYSIZE).mkString(" ")
+	      postfixMap(postfix) = postfixMap(postfix) :+ id
+	    }
     }
-
     val t1 = System.nanoTime()
     println("readAndIndex: " + (t1 - t0) / 1000000 + "ms")
-    val preMap = prefixMap.filter(p => p._2.size > 1)
-    val postMap = postfixMap.filter(p => p._2.size > 1)
 
-    (dataMap, preMap, postMap)
+    (dataMap, prefixMap, postfixMap)
   }
 
   def hasEditDistanceLE1(s1: Array[String], s2: Array[String]): Boolean = {
