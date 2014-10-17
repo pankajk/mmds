@@ -16,23 +16,21 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
-    loop((44 to 54).toList)
+    
+    //val lenList = splitIntoFilesByLength(FILE, OUTDIR)
+    val lenList = (10 to 5632).toList
+    //val lenList = (44 to 54).toList
+    loop(lenList)
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
   }
 
-  def splitIntoFilesByLength(filename: String, outdir: String) = {
+  def splitIntoFilesByLength(infile: String, outdir: String): List[Int] = {
     var fileByLen = mutable.Map[Int, PrintWriter]()
-    var i = 0
-    for (line <- Source.fromFile(filename).getLines()) {
-      i += 1
-      if (i % 100000 == 0) println(i + " " + Runtime.getRuntime().freeMemory())
+    for (line <- Source.fromFile(infile).getLines()) {
       val len = line.split(" ").size - 1
       if (!fileByLen.contains(len)) {
-        val padded = "%05d".format(len)
-        val file = new PrintWriter(OUTDIR + padded + ".txt")
-
-        //val file = new PrintWriter(new GZIPOutputStream(new FileOutputStream(OUTDIR + padded + ".txt.gz")))
+        val file = new PrintWriter(fileNameForLength(len))
         fileByLen.put(len, file)
       }
       fileByLen(len).println(line)
@@ -40,6 +38,11 @@ object Main {
     for (file <- fileByLen.values) {
       file.close()
     }
+    (List[Int]() ++ fileByLen.keys).sorted
+  }
+
+  private def fileNameForLength(len: Int): String = {
+    OUTDIR + "%05d".format(len) + ".txt"
   }
 
   private def loop(sLenList: List[Int]) = {
@@ -71,63 +74,28 @@ object Main {
     var compCount = 0
     for (id <- dataMap.keys) {
       val sentence = dataMap(id)
-      val (res, comp) = checkShorterSentence(sentence, prevDataMap, prevPreMap, prevPostMap,  id)
-      resCount += res
-      compCount += comp
-      val (res2, comp2) = checkSentence(sentence, dataMap, preMap, postMap, id)
-      resCount += res2
-      compCount += comp2
+      val (prefix, postfix) = createPrefixAndPostfix(sentence)
+      
+      val shorterSentenceSet = (List[Int]() ++ prevPreMap.getOrElse(prefix, List()) ++ prevPostMap.getOrElse(postfix, List())).distinct
+      compCount += shorterSentenceSet.size
+      resCount += shorterSentenceSet.count(key => hasEditDistanceLE1(sentence, prevDataMap(key)))
+
+      val sameLengthSentenceSet = (List[Int]() ++ preMap(prefix) ++ postMap(postfix)).filter(p => p > id).distinct
+      compCount += sameLengthSentenceSet.size
+      resCount += sameLengthSentenceSet.count(key => hasEditDistanceLE1(sentence, dataMap(key)))
     }
     val t1 = System.nanoTime()
     println("check candidates: " + (t1 - t0) / 1000000 + "ms")
-    println("=" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")\n")
-    return (resCount, compCount)
-  }
-  
-  private def checkShorterSentence(sentence: Array[String], 
-      prevDataMap: mutable.Map[Int,Array[String]], 
-      preMap: mutable.Map[String,List[Int]], 
-      postMap: mutable.Map[String,List[Int]], 
-      id: Int): (Int, Int) = {
-    var (resCount, compCount) = (0, 0)
-    val (prefix, postfix) = createPrefixAndPostfix(sentence)
-    var set = (List[Int]() ++ preMap.getOrElse(prefix, List()) ++ postMap.getOrElse(postfix, List())).distinct
-    for (s1 <- set) {
-      compCount += 1
-      if (hasEditDistanceLE1(sentence, prevDataMap(s1))) resCount += 1
-    }
+    println("= " + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")\n")
     return (resCount, compCount)
   }
 
-  private def createPrefixAndPostfix(sentence: Array[String]): (String, String) = {
-    val prefix = sentence.take(KEYSIZE).mkString(" ")
-    val postfix = sentence.takeRight(KEYSIZE).mkString(" ")
-    (prefix, postfix)
-  }
-  
-  private def checkSentence(sentence: Array[String], 
-      dataMap: mutable.Map[Int,Array[String]], 
-      preMap: mutable.Map[String,List[Int]], 
-      postMap: mutable.Map[String,List[Int]], 
-      id: Int): (Int, Int) = {
-    var (resCount, compCount) = (0, 0)
-    val (prefix, postfix) = createPrefixAndPostfix(sentence)
-    var set = (List() ++ preMap(prefix) ++ postMap(postfix)).filter(p => p > id).distinct
-    for (s1 <- set) {
-      compCount += 1
-      if (hasEditDistanceLE1(dataMap(id), dataMap(s1))) resCount += 1
-    }
-    return (resCount, compCount)
-  }
-
-  private def readAndIndex(sLength: Int): (scala.collection.mutable.Map[Int, Array[String]], 
-      scala.collection.mutable.Map[String, List[Int]], 
-      scala.collection.mutable.Map[String, List[Int]]) = {
+  private def readAndIndex(sLength: Int): (mutable.Map[Int, Array[String]], mutable.Map[String, List[Int]], mutable.Map[String, List[Int]]) = {
     val t0 = System.nanoTime()
     var dataMap = mutable.Map[Int, Array[String]]()
     var prefixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
     var postfixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
-    val fileName = OUTDIR + "%05d".format(sLength) + ".txt"
+    val fileName = fileNameForLength(sLength)
     if (Files.exists(Paths.get(fileName))) {
 	    for (line <- Source.fromFile(fileName).getLines()) {
 	      var lineArr = line.split(" ");
@@ -165,5 +133,11 @@ object Main {
       }
       return s1.size - c <= 1
     }
+  }
+  
+  private def createPrefixAndPostfix(sentence: Array[String]): (String, String) = {
+    val prefix = sentence.take(KEYSIZE).mkString(" ")
+    val postfix = sentence.takeRight(KEYSIZE).mkString(" ")
+    (prefix, postfix)
   }
 }
