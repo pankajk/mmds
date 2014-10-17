@@ -2,7 +2,26 @@
 16049295
 Elapsed time: 41625ms
 
+40:
+readAndIndex: 1098ms
+check candidates: 3753ms
+========================
+1500469 (comparisons: 1509107 - ratio: 0.9942761)
+Elapsed time: 4881ms
 
+41:
+readAndIndex: 1130ms
+check candidates: 4653ms
+========================
+1883034 (comparisons: 1888108 - ratio: 0.99731266)
+Elapsed time: 5811ms
+
+42:
+readAndIndex: 2096ms
+check candidates: 18710ms
+========================
+8076664 (comparisons: 8082060 - ratio: 0.99933237)
+Elapsed time: 20835ms
 
 
 (10,610782)
