@@ -16,7 +16,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val t0 = System.nanoTime()
-    loop((10 to 5632).toList)
+    loop((44 to 54).toList)
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
   }
@@ -43,98 +43,75 @@ object Main {
   }
 
   private def loop(sLenList: List[Int]) = {
-    var prevPreMap = scala.collection.mutable.Map[String, List[Int]]()
-    var prevPostMap = scala.collection.mutable.Map[String, List[Int]]()
-    var prevDataMap = scala.collection.mutable.Map[Int,Array[String]]()
+    var prevPreMap = mutable.Map[String, List[Int]]()
+    var prevPostMap = mutable.Map[String, List[Int]]()
+    var prevDataMap = mutable.Map[Int,Array[String]]()
     var result = 0
     for (sLen <- sLenList) {
-      println(sLen + ":\n")
+    	println(sLen + ":")
 	    val (dataMap, preMap, postMap) = readAndIndex(sLen)
-	    result += checkShorterCandidates(dataMap, prevDataMap, prevPreMap, prevPostMap)
+	    result += checkCandidates(dataMap, preMap, postMap, prevDataMap, prevPreMap, prevPostMap)._1 
+	    // ready for garbage collection
 	    prevPreMap = preMap
 	    prevPostMap = postMap
 	    prevDataMap = dataMap
-	    result += checkCandidates(dataMap, preMap, postMap)
     }
     println("\n========================\n Result:" + result)
   }
 
   
-  private def checkShorterCandidates(dataMap: scala.collection.mutable.Map[Int, Array[String]], 
-      prevDataMap: scala.collection.mutable.Map[Int,Array[String]], 
-      prevPreMap: scala.collection.mutable.Map[String, List[Int]], 
-      prevPostMap: scala.collection.mutable.Map[String, List[Int]]): Int = {
+  private def checkCandidates(dataMap: scala.collection.mutable.Map[Int, Array[String]],  
+      preMap: mutable.Map[String, List[Int]], 
+      postMap: mutable.Map[String, List[Int]],
+      prevDataMap: mutable.Map[Int,Array[String]], 
+      prevPreMap: mutable.Map[String, List[Int]], 
+      prevPostMap: mutable.Map[String, List[Int]]): (Int, Int) = {
     val t0 = System.nanoTime()
-    println("\n======================== Check shorter candidates")
-
     var resCount = 0
     var compCount = 0
     for (id <- dataMap.keys) {
       val sentence = dataMap(id)
-      val (res, comp) = checkShorterSentence(dataMap, prevDataMap, prevPreMap, prevPostMap,  id)
+      val (res, comp) = checkShorterSentence(sentence, prevDataMap, prevPreMap, prevPostMap,  id)
       resCount += res
       compCount += comp
+      val (res2, comp2) = checkSentence(sentence, dataMap, preMap, postMap, id)
+      resCount += res2
+      compCount += comp2
     }
     val t1 = System.nanoTime()
     println("check candidates: " + (t1 - t0) / 1000000 + "ms")
-    println("========================\n" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")")
-    return resCount
-  }
-  
-  private def checkCandidates(dataMap: scala.collection.mutable.Map[Int, Array[String]], 
-      preMap: scala.collection.mutable.Map[String, List[Int]], 
-      postMap: scala.collection.mutable.Map[String, List[Int]]): Int = {
-    val t0 = System.nanoTime()
-    println("\n======================== Check candidates")
-
-    var resCount = 0
-    var compCount = 0
-    for (id <- dataMap.keys) {
-      val sentence = dataMap(id)
-      val (res, comp) = checkSentence(dataMap, preMap, postMap,  id)
-      resCount += res
-      compCount += comp
-    }
-    val t1 = System.nanoTime()
-    println("check candidates: " + (t1 - t0) / 1000000 + "ms")
-    println("========================\n" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")")
-    return resCount
-  }
-  
-  private def checkShorterSentence(dataMap: scala.collection.mutable.Map[Int,Array[String]], 
-      prevDataMap: scala.collection.mutable.Map[Int,Array[String]], 
-      preMap: scala.collection.mutable.Map[String,List[Int]], 
-      postMap: scala.collection.mutable.Map[String,List[Int]], 
-      id: Int): (Int, Int) = {
-    var resCount = 0
-    var compCount = 0
-    val sentence = dataMap(id)
-    val prefix = sentence.take(KEYSIZE).mkString(" ")
-    val postfix = sentence.takeRight(KEYSIZE).mkString(" ")
-    var set = List[Int]() 
-    if (preMap.contains(prefix)) {
-      set = set ++ preMap(prefix)
-    }
-    if (postMap.contains(postfix)) {
-      set = set ++ postMap(postfix)
-    }
-    set = set.distinct
-    for (s1 <- set) {
-      compCount += 1
-      if (hasEditDistanceLE1(dataMap(id), prevDataMap(s1))) resCount += 1
-    }
+    println("=" + resCount + " (comparisons: " + compCount + " - ratio: " + resCount.toFloat / compCount + ")\n")
     return (resCount, compCount)
   }
   
-  private def checkSentence(dataMap: scala.collection.mutable.Map[Int,Array[String]], 
-      preMap: scala.collection.mutable.Map[String,List[Int]], 
-      postMap: scala.collection.mutable.Map[String,List[Int]], 
+  private def checkShorterSentence(sentence: Array[String], 
+      prevDataMap: mutable.Map[Int,Array[String]], 
+      preMap: mutable.Map[String,List[Int]], 
+      postMap: mutable.Map[String,List[Int]], 
       id: Int): (Int, Int) = {
-    var resCount = 0
-    var compCount = 0
-    val sentence = dataMap(id)
+    var (resCount, compCount) = (0, 0)
+    val (prefix, postfix) = createPrefixAndPostfix(sentence)
+    var set = (List[Int]() ++ preMap.getOrElse(prefix, List()) ++ postMap.getOrElse(postfix, List())).distinct
+    for (s1 <- set) {
+      compCount += 1
+      if (hasEditDistanceLE1(sentence, prevDataMap(s1))) resCount += 1
+    }
+    return (resCount, compCount)
+  }
+
+  private def createPrefixAndPostfix(sentence: Array[String]): (String, String) = {
     val prefix = sentence.take(KEYSIZE).mkString(" ")
     val postfix = sentence.takeRight(KEYSIZE).mkString(" ")
+    (prefix, postfix)
+  }
+  
+  private def checkSentence(sentence: Array[String], 
+      dataMap: mutable.Map[Int,Array[String]], 
+      preMap: mutable.Map[String,List[Int]], 
+      postMap: mutable.Map[String,List[Int]], 
+      id: Int): (Int, Int) = {
+    var (resCount, compCount) = (0, 0)
+    val (prefix, postfix) = createPrefixAndPostfix(sentence)
     var set = (List() ++ preMap(prefix) ++ postMap(postfix)).filter(p => p > id).distinct
     for (s1 <- set) {
       compCount += 1
@@ -150,24 +127,20 @@ object Main {
     var dataMap = mutable.Map[Int, Array[String]]()
     var prefixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
     var postfixMap = mutable.Map[String, List[Int]]().withDefaultValue(List())
-    var i = 0
     val fileName = OUTDIR + "%05d".format(sLength) + ".txt"
     if (Files.exists(Paths.get(fileName))) {
 	    for (line <- Source.fromFile(fileName).getLines()) {
-	      i += 1
-	      if (i % 100000 == 0) println(i + " " + Runtime.getRuntime().freeMemory())
 	      var lineArr = line.split(" ");
 	      val words = lineArr.tail
 	      var id = lineArr.head.toInt;
 	      dataMap(id) = words
-	      val prefix = words.take(KEYSIZE).mkString(" ")
+	      val (prefix, postfix) = createPrefixAndPostfix(words)
 	      prefixMap(prefix) = prefixMap(prefix) :+ id
-	      val postfix = words.takeRight(KEYSIZE).mkString(" ")
 	      postfixMap(postfix) = postfixMap(postfix) :+ id
 	    }
     }
     val t1 = System.nanoTime()
-    println("readAndIndex: " + (t1 - t0) / 1000000 + "ms")
+    println("readAndIndex: (" + fileName + ")  " + (t1 - t0) / 1000000 + "ms")
 
     (dataMap, prefixMap, postfixMap)
   }
