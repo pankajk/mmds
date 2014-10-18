@@ -18,9 +18,9 @@ object Main {
     val t0 = System.nanoTime()
     
     //val lenList = splitIntoFilesByLength(FILE, OUTDIR)
-    //val lenList = (10 to 5632).toList
+    val lenList = (10 to 5632).toList
     //val lenList = (11 to 11).toList
-    val lenList = (10 to 12).toList
+    //val lenList = (10 to 12).toList
     loop(lenList)
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
@@ -82,22 +82,22 @@ object Main {
     return (resCount, compCount)
   }
 
-  private def checkEqualLength(dataMap: mutable.Map[Int,Array[String]], 
-      preMap: mutable.Map[Int,List[Int]], 
-      postMap: mutable.Map[Int,List[Int]], 
-      sentence: Array[String], id:Int, prefix: Int, postfix: Int): (Int, Int) =  {
-	  val sameLengthSentenceSet = (preMap(prefix) ++ postMap(postfix)).filter(p => p > id).distinct
-      return (sameLengthSentenceSet.size, sameLengthSentenceSet.count(key => hasEditDistanceLE1(sentence, dataMap(key))))
+  private def checkEqualLength(dataMap: mutable.Map[Int, Array[String]],
+		  preMap: mutable.Map[Int, List[Int]],
+		  postMap: mutable.Map[Int, List[Int]],
+		  sentence: Array[String], id: Int, prefix: Int, postfix: Int): (Int, Int) = {
+    val sameLengthSentenceSet = (preMap(prefix) ++ postMap(postfix)).filter(p => p > id).distinct
+    return (sameLengthSentenceSet.size, sameLengthSentenceSet.count(key => hasEditDistanceLE1(sentence, dataMap(key))))
   }
-  
-  private def checkShorter(prevDataMap: mutable.Map[Int,Array[String]], 
-      prevPreMap: mutable.Map[Int,List[Int]], 
-      prevPostMap: mutable.Map[Int,List[Int]], 
-      sentence: Array[String], id:Int, prefix: Int, postfix: Int): (Int, Int) = {
+
+  private def checkShorter(prevDataMap: mutable.Map[Int, Array[String]],
+		  prevPreMap: mutable.Map[Int, List[Int]],
+		  prevPostMap: mutable.Map[Int, List[Int]],
+		  sentence: Array[String], id: Int, prefix: Int, postfix: Int): (Int, Int) = {
     val shorterSentenceSet = (prevPreMap.getOrElse(prefix, List()) ++ prevPostMap.getOrElse(postfix, List())).distinct
     return (shorterSentenceSet.size, shorterSentenceSet.count(key => hasEditDistanceLE1(sentence, prevDataMap(key))))
   }
-  
+
   private def readAndIndex(sLength: Int): (mutable.Map[Int, Array[String]], mutable.Map[Int, List[Int]], mutable.Map[Int, List[Int]]) = {
     val t0 = System.nanoTime()
     var dataMap = mutable.Map[Int, Array[String]]()
@@ -105,15 +105,15 @@ object Main {
     var postfixMap = mutable.Map[Int, List[Int]]().withDefaultValue(List())
     val fileName = fileNameForLength(sLength)
     if (Files.exists(Paths.get(fileName))) {
-	    for (line <- Source.fromFile(fileName).getLines()) {
-	      var lineArr = line.split(" ");
-	      val words = lineArr.tail
-	      var id = lineArr.head.toInt;
-	      dataMap(id) = words
-	      val (prefix, postfix) = createPrefixAndPostfix(words)
-	      prefixMap(prefix) = prefixMap(prefix) :+ id
-	      postfixMap(postfix) = postfixMap(postfix) :+ id
-	    }
+      for (line <- Source.fromFile(fileName).getLines()) {
+        var lineArr = line.split(" ");
+        val words = lineArr.tail
+        var id = lineArr.head.toInt;
+        dataMap(id) = words
+        val (prefix, postfix) = createPrefixAndPostfix(words)
+        prefixMap(prefix) = prefixMap(prefix) :+ id
+        postfixMap(postfix) = postfixMap(postfix) :+ id
+      }
     }
     val t1 = System.nanoTime()
     println("readAndIndex: (" + fileName + ")  " + (t1 - t0) / 1000000 + "ms")
