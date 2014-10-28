@@ -3,7 +3,7 @@ Programming Assignment for Mining Massive Datasets
 ==================================================
 
 The task here is to quickly find the number of pairs of sentences that are at the word-level edit distance at most 1. 
-Two sentences S1 and S2 they are at edit distance 1 if S1 can be transformed to S2 by: adding, removing or substituting 
+Two sentences S1 and S2 are at edit distance 1 if S1 can be transformed to S2 by: adding, removing or substituting 
 a single word.
 
 The input data has 9,397,023 sentences, each one divided by a new line and with the sentence id at the beginning of the 
