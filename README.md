@@ -20,8 +20,10 @@ only 1GB of memory.
 
 In the end I found a way that works with an even simpler way to find candidate pairs (which have a potential edit distance
 of 1, according to the definition above):
+
 Phase 1: 
  * Pretty obvious: Split the file into many files by sentence length, e.g. all sentences with length 10 go to 00010.txt
+
 Phase 2: 
  * For sentence length n: All candidates must be length n or length n-1. Make sure to count same length candidates only once
    (by id1 < id2)
@@ -37,7 +39,7 @@ Observations
 ============
 * Java uses Unicode and as a result the Strings take a lot of memory.
 * Runtime with 1 GB of memory ~20-25 minutes (+ 70 seconds for splitting the file)
-* Runtime with 4 GB of memory ~10 minutes (+ 70 seconds for splitting the file)
+* Runtime with 4 GB of memory ~10 minutes (+ 70 seconds for splitting the file) (both on Core i5-2500K@3.3GHz with 8GB RAM, HD - not SSD)
 
 
 TODO
