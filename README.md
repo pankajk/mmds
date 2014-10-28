@@ -33,6 +33,8 @@ Phase 2:
    first 5 or the last 5 (or both) have to be identical. Grouping: put into HashMap with key first/last 5 words, value is a
    list of sentence ids.
  * Also keep these HashMaps from value n-1 and compare against it as well
+
+I have chosen Scala because I don't have the opportunity to use it in my day job and its been five years since I've read the Stairway Book by Odersky. Nice and interesting language, too.
  
 
 Observations
@@ -45,5 +47,6 @@ Observations
 TODO
 ====
 * Use more than one CPU core for the comparisions (by using the Akka Actor library)
+* Compare with implementation in another language, e.g. Julia
 
 
