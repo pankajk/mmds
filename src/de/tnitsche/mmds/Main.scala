@@ -54,12 +54,12 @@ object Main {
     var prevDataMap = mutable.Map[Int,Array[String]]()
     var result = 0
     for (sLen <- sLenList) {
-    	println(sLen + ":")
-	    val (dataMap, preMap, postMap) = readAndIndex(sLen)
-	    result += checkCandidates(dataMap, preMap, postMap, prevDataMap, prevPreMap, prevPostMap)._1 
-	    prevPreMap = preMap
-	    prevPostMap = postMap
-	    prevDataMap = dataMap
+      println(sLen + ":")
+      val (dataMap, preMap, postMap) = readAndIndex(sLen)
+      result += checkCandidates(dataMap, preMap, postMap, prevDataMap, prevPreMap, prevPostMap)._1
+      prevPreMap = preMap
+      prevPostMap = postMap
+      prevDataMap = dataMap
     }
     println("\n========================\n Result:" + result)
   }
@@ -118,7 +118,9 @@ object Main {
   /**
    * Reads one of the files by sentence length, creates and hashes them by prefix and postfix.
    */
-  private def readAndIndex(sLength: Int): (mutable.Map[Int, Array[String]], mutable.Map[Int, List[Int]], mutable.Map[Int, List[Int]]) = {
+  private def readAndIndex(sLength: Int): (mutable.Map[Int, Array[String]], 
+	      mutable.Map[Int, List[Int]], 
+	      mutable.Map[Int, List[Int]]) = {
     val t0 = System.nanoTime()
     var dataMap = mutable.Map[Int, Array[String]]()
     var prefixMap = mutable.Map[Int, List[Int]]().withDefaultValue(List())
