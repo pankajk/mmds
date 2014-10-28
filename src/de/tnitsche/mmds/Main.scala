@@ -18,14 +18,17 @@ object Main {
     val t0 = System.nanoTime()
     
     //val lenList = splitIntoFilesByLength(FILE, OUTDIR)
-    val lenList = (10 to 5632).toList
-    //val lenList = (11 to 11).toList
-    //val lenList = (10 to 12).toList
+    val lenList = (10 to 5632).toList // no need to split the file again and again
     loop(lenList)
+    
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1000000 + "ms")
   }
 
+  /**
+   * Splits the input file into lots of files grouped by sentence length.
+   * I was surprised that it is possible to have >1000 files open in parallel for writing... ;)
+   */
   def splitIntoFilesByLength(infile: String, outdir: String): List[Int] = {
     var fileByLen = mutable.Map[Int, PrintWriter]()
     for (line <- Source.fromFile(infile).getLines()) {
@@ -42,6 +45,9 @@ object Main {
     (List[Int]() ++ fileByLen.keys).sorted
   }
 
+  /**
+   * The main loop takes the list of sentences lengths and processes the matching files.
+   */
   private def loop(sLenList: List[Int]) = {
     var prevPreMap = mutable.Map[Int, List[Int]]()
     var prevPostMap = mutable.Map[Int, List[Int]]()
@@ -58,7 +64,10 @@ object Main {
     println("\n========================\n Result:" + result)
   }
 
-  
+  /**
+   * Loops over the sentences with a certain length and checks the candidates found in the HashMaps
+   * with length-1 and same length for sentences with edit distance 1.
+   */
   private def checkCandidates(dataMap: scala.collection.mutable.Map[Int, Array[String]] , 
       preMap: mutable.Map[Int, List[Int]], 
       postMap: mutable.Map[Int, List[Int]], 
@@ -82,6 +91,10 @@ object Main {
     return (resCount, compCount)
   }
 
+  /**
+   * Checks a single sentence against candidates with same length. Candidates are sentences which have the same 5-word
+   * prefix (preMap) or postfix (postMap).
+   */
   private def checkEqualLength(dataMap: mutable.Map[Int, Array[String]],
 		  preMap: mutable.Map[Int, List[Int]],
 		  postMap: mutable.Map[Int, List[Int]],
@@ -90,6 +103,10 @@ object Main {
     return (sameLengthSentenceSet.size, sameLengthSentenceSet.count(key => hasEditDistanceLE1(sentence, dataMap(key))))
   }
 
+  /**
+   * Checks a single sentence against candidates with length-1. Candidates are sentences which have the same 5-word
+   * prefix (prevPreMap) or postfix (prevPostMap).
+   */
   private def checkShorter(prevDataMap: mutable.Map[Int, Array[String]],
 		  prevPreMap: mutable.Map[Int, List[Int]],
 		  prevPostMap: mutable.Map[Int, List[Int]],
@@ -98,6 +115,9 @@ object Main {
     return (shorterSentenceSet.size, shorterSentenceSet.count(key => hasEditDistanceLE1(sentence, prevDataMap(key))))
   }
 
+  /**
+   * Reads one of the files by sentence length, creates and hashes them by prefix and postfix.
+   */
   private def readAndIndex(sLength: Int): (mutable.Map[Int, Array[String]], mutable.Map[Int, List[Int]], mutable.Map[Int, List[Int]]) = {
     val t0 = System.nanoTime()
     var dataMap = mutable.Map[Int, Array[String]]()
@@ -121,6 +141,9 @@ object Main {
     (dataMap, prefixMap, postfixMap)
   }
 
+  /**
+   * The method that actually checks if edit distance between to sentences is 0 or 1.
+   */
   def hasEditDistanceLE1(s1: Array[String], s2: Array[String]): Boolean = {
     if (s1.size != s2.size) {
       var sh = s1.toList
@@ -143,12 +166,18 @@ object Main {
     }
   }
   
+  /**
+   * Creates prefix and postfix hash keys from a sentence. 
+   */
   private def createPrefixAndPostfix(sentence: Array[String]): (Int, Int) = {
     val prefix = sentence.take(KEYSIZE).mkString(" ").hashCode()
     val postfix = sentence.takeRight(KEYSIZE).mkString(" ").hashCode()
     (prefix, postfix)
   }
   
+  /**
+   * Helper function to format the filename.
+   */
   private def fileNameForLength(len: Int): String = {
     OUTDIR + "%05d".format(len) + ".txt"
   }

@@ -15,6 +15,9 @@ case class Work(tested: Array[String], candidates: Array[Array[String]]) extends
  
 case class Result(count: Int) extends CompMessage
 
+/**
+ *  TODO: make it work! :D
+ */
 class Worker extends Actor {
   def receive = {
     case Work(tested, candidates) =>
