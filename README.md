@@ -40,13 +40,21 @@ I have chosen Scala because I don't have the opportunity to use it in my day job
 Observations
 ============
 * Java uses Unicode and as a result the Strings take a lot of memory.
+
+Single-threaded:
 * Runtime with 1 GB of memory ~20-25 minutes (+ 70 seconds for splitting the file)
 * Runtime with 4 GB of memory ~10 minutes (+ 70 seconds for splitting the file) (both on Core i5-2500K@3.3GHz with 8GB RAM, HD - not SSD)
 
+Multi-threaded:
+* Runtime with 1.2 GB of memory (a bit higher minimum to avoid thrashing) ~6 minutes
+* Runtime with 4 GB of memory ~4.5 minutes - 2.2 times faster is pretty nice
+* Using Akka Actors library
+* Had to change the flow to create batches of work - otherwise overhead for dispatching/gathering outweighs the benefits
+* Only comparison of sentences against candidates happens in parallel. 
+* Reading and Indexing happens in single thread (and takes about 78s in total - 18s for reading from HD, 60s for indexing). 
 
 TODO
 ====
-* Use more than one CPU core for the comparisions (by using the Akka Actor library)
 * Compare with implementation in another language, e.g. Julia
 
 
